@@ -1,28 +1,27 @@
 resource "aws_ecs_cluster" "web-cluster" {
   name               = var.cluster_name
-  capacity_providers = [aws_ecs_capacity_provider.test.name]
   tags = {
     "env"       = "dev"
     "createdBy" = "binpipe"
   }
 }
 
-resource "aws_iam_service_linked_role" "ecs" {
-  aws_service_name = "ecs.amazonaws.com"
-}
+//resource "aws_iam_service_linked_role" "ecs" {
+//  aws_service_name = "ecs.amazonaws.com"
+//}
 
-resource "aws_ecs_capacity_provider" "test" {
-  name = "capacity-provider-test"
-  auto_scaling_group_provider {
-    auto_scaling_group_arn         = aws_autoscaling_group.asg.arn
-    managed_termination_protection = "ENABLED"
+resource "aws_ecs_cluster_capacity_providers" "test" {
+  cluster_name = aws_ecs_cluster.web-cluster.name
 
-    managed_scaling {
-      status          = "ENABLED"
-      target_capacity = 85
-    }
+  capacity_providers = ["FARGATE"]
+
+  default_capacity_provider_strategy {
+    base              = 1
+    weight            = 100
+    capacity_provider = "FARGATE"
   }
 }
+
 
 # update file container-def, so it's pulling image from ecr
 resource "aws_ecs_task_definition" "task-definition-test" {
@@ -39,7 +38,7 @@ resource "aws_ecs_service" "service" {
   name            = "web-service"
   cluster         = aws_ecs_cluster.web-cluster.id
   task_definition = aws_ecs_task_definition.task-definition-test.arn
-  desired_count   = 10
+  desired_count   = 2
   ordered_placement_strategy {
     type  = "binpack"
     field = "cpu"
